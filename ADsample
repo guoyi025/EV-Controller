@@ -71,8 +71,8 @@ Notice        :
                 A:簿12琌筁蹦妓16Ω,AD蹦妓琌8bitだ侩瞯
                 B:程沧眔挡狦*1000琌盢AD锣传100.0%ゑㄒ璸衡,盿计
 
-Author        : juginhine (email: juginhine@139.com/white.zhu@sinowealth.com.cn)
-Date          : 2010/12/27 05:25:53
+Author        : 
+Date          : 
 Version       : V0.0
 
 Input         : none
@@ -84,8 +84,7 @@ CallSubroutine: none
 RevisionHistory:
 Rev#     Date     Author     Comments(Function+Date)
 -----+----------+---------+-----------------------------------------------------
-0.0   2010/12/27 juginhine Just build the function
-0.1
+
 ==============================================================================*/
 
 void    ADsample(void)
@@ -140,8 +139,8 @@ Description   :
 Notice        :
              1:
 
-Author        : juginhine (email: juginhine@139.com/white.zhu@sinowealth.com.cn)
-Date          : 2011/07/13 10:02:03
+Author        : 
+Date          : 
 Version       : V0.0
 
 Input         : none
@@ -153,8 +152,7 @@ CallSubroutine: none
 RevisionHistory:
 Rev#     Date     Author     Comments(Function+Date)
 -----+----------+---------+-----------------------------------------------------
-0.0   2011/07/13 juginhine Just build the function
-0.1
+
 ==============================================================================*/
 #if (HAS_POT)
 static  void    POTAdProcess(void)
