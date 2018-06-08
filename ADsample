@@ -1,1 +1,226 @@
+#include ".\INC\Config.h"
 
+
+#define AD_SAMPLE_VALUE         1000
+#define AD_REG_MAX              0xff
+
+#define AD_POTOVERSAMPLE_TIMES  0x10 
+
+#define MAXVOLTAGE  (1000*5/3.3)	  		   // 5/3.3*AD_SAMPLE_VALUE
+
+#define RESTEMP		100 	//100,10K*10
+#define TEMPINDEX       17 
+#define STEP            100		// (10)
+#define RESN40		8800		//1
+#define RESN30		6600		//2
+#define RESN20		4800		//3
+#define RESN10		2700		//4
+#define RES0		1600		//5
+#define RES10		950		//6
+#define RES20		600		//7
+#define RES30		350		//8
+#define RES40		240		//9
+#define RES50		170		//10
+#define RES60		110		//11	
+#define RES70		78		//12
+#define RES80		55		//13
+#define RES90		40		//14
+#define RES100		30		//15
+#define RES110		20		//16
+#define RES120		17		//17
+int RESCOR[TEMPINDEX]={RESN40,RESN30,RESN20,RESN10,RES0,RES10,RES20,RES30,RES40,RES50,RES60,RES70,RES80,RES90,RES100,RES110,RES120};
+int TEMCOR[TEMPINDEX]={-400,-300,-200,-100,0,100,200,300,400,500,600,700,800,900,1000,1100,1200};
+
+
+#define SET_ADCH_START(adch)    {   ADCON &= bin(10110000);     \
+                                    ADCON |= (adch << 1);       \
+                                    SET_AD_START();             \
+                                }
+
+static void TemperatureCalc();
+
+//--------------------------------------
+// global variable definition
+//--------------------------------------
+ST_AD   xdata   g_stAD;
+
+struct
+{
+    int  i16CntADOverSample[AD_CH_COUNT];
+    uint32  u32ADVal[AD_CH_COUNT];
+    uint8   u8fAD;
+} xdata m_stAD;
+
+
+//--------------------------------------
+// function definition
+//--------------------------------------
+        void    ADsample(void);
+
+static  void    TEMPAdProcess(void);
+//static  void    ACIAdProcess(void);
+static  void    POTAdProcess(void);
+
+//static  void    Sort(uint16 *ptr, uint8 u8Len);
+
+/*==============================================================================
+FunctionName  : void    ADsample(void)
+Description   :
+Notice        :
+             1: AD=(uint16)(mul16_16(m_stAD.i16CntADOverSample, 1000) >> 12)璸衡弧
+                A:簿12琌筁蹦妓16Ω,AD蹦妓琌8bitだ侩瞯
+                B:程沧眔挡狦*1000琌盢AD锣传100.0%ゑㄒ璸衡,盿计
+
+Author        : juginhine (email: juginhine@139.com/white.zhu@sinowealth.com.cn)
+Date          : 2010/12/27 05:25:53
+Version       : V0.0
+
+Input         : none
+Output        : none
+Constant      : none
+Temporary     : none
+CallSubroutine: none
+
+RevisionHistory:
+Rev#     Date     Author     Comments(Function+Date)
+-----+----------+---------+-----------------------------------------------------
+0.0   2010/12/27 juginhine Just build the function
+0.1
+==============================================================================*/
+
+void    ADsample(void)
+{
+static  uint8   xdata   u8AdCycle;                      //ノㄓ10ms璸衡
+
+        if (g_stAD.bAdcEn)
+        {
+            g_stAD.bAdcEn = 0;
+            switch (u8AdCycle)
+            {
+	            case 0:
+	            {
+	                m_stAD.u32ADVal[0] += ADDH;
+	                m_stAD.i16CntADOverSample[0]++;
+	#if (HAS_POT)
+	                POTAdProcess();
+	#endif
+	#if (AD_CH_COUNT>1)
+	                SET_ADCH_START(AD_SAMPLE_CH_2);
+	#endif
+	                break;
+	            }
+	
+	            case 1:
+	            {
+	#if (AD_CH_COUNT>1)
+	                m_stAD.u32ADVal[1] += ADDH;                
+	                m_stAD.i16CntADOverSample[1]++;
+	    #if (HAS_TEMP)
+	                TEMPAdProcess();
+	    #endif
+	#endif
+	                SET_ADCH_START(AD_SAMPLE_CH_1);
+					 
+	                break;
+	            }
+			}
+
+        u8AdCycle++;
+        if (u8AdCycle >= 2)
+        {
+            u8AdCycle = 0;
+        }
+    }
+}
+
+
+/*==============================================================================
+FunctionName  :
+Description   :
+Notice        :
+             1:
+
+Author        : juginhine (email: juginhine@139.com/white.zhu@sinowealth.com.cn)
+Date          : 2011/07/13 10:02:03
+Version       : V0.0
+
+Input         : none
+Output        : none
+Constant      : none
+Temporary     : none
+CallSubroutine: none
+
+RevisionHistory:
+Rev#     Date     Author     Comments(Function+Date)
+-----+----------+---------+-----------------------------------------------------
+0.0   2011/07/13 juginhine Just build the function
+0.1
+==============================================================================*/
+#if (HAS_POT)
+static  void    POTAdProcess(void)
+{
+
+    if (m_stAD.i16CntADOverSample[ARRAY_INX_POT_RESULT] >= AD_POTOVERSAMPLE_TIMES)
+    {
+        //ad蹦ノΩキА
+        m_stAD.u32ADVal[ARRAY_INX_POT_RESULT] >>= 4;
+
+        //POT矪瞶
+        g_stKey.u16Pot = (uint16)div32_16(mul16_16((uint16)  \
+                                                       m_stAD.u32ADVal[ARRAY_INX_POT_RESULT], AD_SAMPLE_VALUE), AD_REG_MAX);
+        if (g_stKey.u16Pot > AD_SAMPLE_VALUE)
+        {
+            g_stKey.u16Pot = AD_SAMPLE_VALUE;
+        }
+
+        m_stAD.i16CntADOverSample[ARRAY_INX_POT_RESULT] = 0;
+        m_stAD.u32ADVal[ARRAY_INX_POT_RESULT] = 0;
+    }
+}
+#endif
+
+#if (HAS_TEMP)
+static  void    TEMPAdProcess(void)
+{
+    if (m_stAD.i16CntADOverSample[ARRAY_INX_TEMP_RESULT] >= AD_POTOVERSAMPLE_TIMES)
+    {
+        //ad蹦ノΩキА
+        m_stAD.u32ADVal[ARRAY_INX_TEMP_RESULT] >>= 4;
+
+        //POT矪瞶
+        g_stRunControl.u16TempAdc = (uint16)div32_16(mul16_16((uint16)  \
+                                                       m_stAD.u32ADVal[ARRAY_INX_TEMP_RESULT], AD_SAMPLE_VALUE), AD_REG_MAX);
+        if (g_stRunControl.u16TempAdc > AD_SAMPLE_VALUE)
+        {
+            g_stRunControl.u16TempAdc = AD_SAMPLE_VALUE;
+        }
+
+		TemperatureCalc();
+
+        m_stAD.i16CntADOverSample[ARRAY_INX_TEMP_RESULT] = 0;
+        m_stAD.u32ADVal[ARRAY_INX_POT_RESULT] = 0;
+    }
+}
+#endif
+
+static void TemperatureCalc()
+{
+	uint8 u8Inx;
+    uint16 u16NTCRes,u16Temp;
+
+	u16NTCRes = (uint16)div32_16(mul16_16((MAXVOLTAGE - g_stRunControl.u16TempAdc),RESTEMP),g_stRunControl.u16TempAdc);
+	for(u8Inx = 0;u8Inx<(TEMPINDEX-1);u8Inx++)
+	{
+		if(u16NTCRes>=RESCOR[u8Inx])
+			break;
+	}
+	if(u8Inx == 0||u8Inx == (TEMPINDEX-1))
+	{
+		g_stRunControl.u16Temp = TEMCOR[u8Inx]<<4;
+	}
+	else
+	{
+		u16Temp = (uint16)(div32_16(mul16_16(STEP,(u16NTCRes-RESCOR[u8Inx])),(RESCOR[u8Inx-1]-RESCOR[u8Inx])));
+		g_stRunControl.u16Temp = TEMCOR[u8Inx]-u16Temp;
+	}
+}
